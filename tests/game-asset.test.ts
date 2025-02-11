@@ -1,21 +1,59 @@
+import { describe, it, expect, beforeEach } from "vitest"
 
-import { describe, expect, it } from "vitest";
+// Mock storage for game assets
+const assets = new Map<number, { name: string; owner: string }>()
+let lastAssetId = 0
 
-const accounts = simnet.getAccounts();
-const address1 = accounts.get("wallet_1")!;
+// Mock functions to simulate contract behavior
+function mintAsset(name: string, sender: string) {
+  const newAssetId = ++lastAssetId
+  assets.set(newAssetId, { name, owner: sender })
+  return newAssetId
+}
 
-/*
-  The test below is an example. To learn more, read the testing documentation here:
-  https://docs.hiro.so/stacks/clarinet-js-sdk
-*/
+function transferAsset(assetId: number, sender: string, recipient: string) {
+  const asset = assets.get(assetId)
+  if (!asset) throw new Error("Asset not found")
+  if (asset.owner !== sender) throw new Error("Not owner")
+  asset.owner = recipient
+  assets.set(assetId, asset)
+  return true
+}
 
-describe("example tests", () => {
-  it("ensures simnet is well initalised", () => {
-    expect(simnet.blockHeight).toBeDefined();
-  });
+function getAssetDetails(assetId: number) {
+  return assets.get(assetId)
+}
 
-  // it("shows an example", () => {
-  //   const { result } = simnet.callReadOnlyFn("counter", "get-counter", [], address1);
-  //   expect(result).toBeUint(0);
-  // });
-});
+describe("Game Asset Contract", () => {
+  beforeEach(() => {
+    assets.clear()
+    lastAssetId = 0
+  })
+  
+  it("should mint a new asset", () => {
+    const assetId = mintAsset("Sword", "player1")
+    expect(assetId).toBe(1)
+    const asset = getAssetDetails(assetId)
+    expect(asset).toEqual({ name: "Sword", owner: "player1" })
+  })
+  
+  it("should transfer an asset", () => {
+    const assetId = mintAsset("Shield", "player1")
+    const result = transferAsset(assetId, "player1", "player2")
+    expect(result).toBe(true)
+    const asset = getAssetDetails(assetId)
+    expect(asset?.owner).toBe("player2")
+  })
+  
+  it("should not transfer an asset if not owner", () => {
+    const assetId = mintAsset("Potion", "player1")
+    expect(() => transferAsset(assetId, "player2", "player3")).toThrow("Not owner")
+  })
+  
+  it("should get asset details", () => {
+    const assetId = mintAsset("Armor", "player1")
+    const asset = getAssetDetails(assetId)
+    expect(asset).toEqual({ name: "Armor", owner: "player1" })
+  })
+})
+
